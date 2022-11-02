@@ -18,22 +18,27 @@
 .define SCROLL_Y $01
 
 .define buttons $02
-.define PlayerX $03
-.define PlayerY $04
+
 
 
 
 start:
     LDA #%10100000
     STA PPUCTRL
+    LDA #%00001110
+    STA PPUMASK             
+    LDA #$00
+                 STA OAMDATA
+                 LDA #$75
+                 STA OAMDATA
     LDA #%00011110
     STA PPUMASK
     
     ; load background palette
-    LDA #$3f
-    STA PPUADDR
-    LDA #0
-    STA PPUADDR
+    ; LDA #$3f
+    ; STA PPUADDR
+    ; LDA #0
+    ; STA PPUADDR
 
     ; LDA #$19
     ; STA PPUDATA
@@ -82,12 +87,8 @@ start:
     ; STA PPUDATA
 
 
-    LDA #00
-    STA OAMADDR
-    LDA #$00
-    STA OAMDATA
-    LDA #$75
-    STA OAMDATA
+    ;LDA #00
+    ;STA OAMADDR
     ; LDA #%10000001
     ; STA OAMDATA
     ; LDA #$22
@@ -137,28 +138,31 @@ start:
     
     LDA #$20
     STA NameTableStartAddressHigh
-    
-
     LDA #$00
     STA NameTableStartAddressLow
-
     JSR FillNametable
 
 
     LDA #$24
     STA NameTableStartAddressHigh
-    
     LDA #$00
     STA NameTableStartAddressLow
-   
-
     JSR FillNametable
 
-
+    ; LDA #$28
+    ; STA NameTableStartAddressHigh
+    ; LDA #$00
+    ; STA NameTableStartAddressLow
+    ; JSR RemoveNametable
+    ; i tried to fill bottom-left and bottom-right nametables with empty tiles but the mirroring affects the others too, so i scrapped it
+    
 loop:
     JMP loop
 
 FillNametable:
+
+
+
 
     LDA  NameTableStartAddressHigh
     STA NT_CurrentAddressHigh
@@ -233,6 +237,94 @@ FillNametable:
         BNE NewRow
 
     END:
+    RTS
+RemoveNametable:
+
+    LDA  NameTableStartAddressHigh
+    STA NT_CurrentAddressHigh
+    STA PPUADDR
+
+    
+    LDA NameTableStartAddressLow
+    STA NT_CurrentAddressLow
+    STA PPUADDR
+
+    LDY #0
+    LDX #0
+    
+    STX LineCounter
+    STX ColumnCounter
+    LDA #%10010000
+    STA PPUCTRL
+    Remove_NT_Loop:
+        LDA #00
+        STA PPUDATA
+        LDA #%10010000
+        STA PPUCTRL
+        INX 
+        CPX #$20
+        BNE Remove_NT_Loop
+        Next_PPU_Page:
+        LDX #$00
+        LDA #%10010100
+        STA PPUCTRL
+        LDA #00
+        STA PPUDATA
+        INY
+        CPY #29
+        BNE Remove_NT_Loop
+        JMP END_Empty
+
+    NewEmptyRow:
+        LDA #%10010000
+        STA PPUCTRL
+        LDA #00
+        STA PPUDATA
+
+        INC NT_CurrentAddressLow
+        LDA NT_CurrentAddressLow
+        CMP #$00
+        BEQ HighIncreaseEmpty
+
+
+
+
+        INC ColumnCounter
+        LDA ColumnCounter
+        
+        CMP #$10
+        BEQ NewEmptyLine
+        JMP NewEmptyRow
+
+    NewEmptyLine:
+        LDA #%10010100
+        STA PPUCTRL
+        LDA NT_CurrentAddressHigh
+        STA PPUADDR
+        LDA NT_CurrentAddressLow
+        ADC #$0F
+        STA NT_CurrentAddressLow
+        STA PPUADDR
+        LDA #0
+        
+        STA ColumnCounter
+        INC LineCounter
+        LDA LineCounter
+        BNE SkipHighIncreaseEmpty
+                HighIncreaseEmpty:
+                INC NT_CurrentAddressHigh
+                LDA NT_CurrentAddressHigh
+                STA NT_CurrentAddressHigh
+                STA PPUADDR
+                LDA #$00
+                STA NT_CurrentAddressLow
+                STA PPUADDR
+            SkipHighIncreaseEmpty:
+        LDA LineCounter
+        CMP #$10
+        BNE NewEmptyRow
+
+    END_Empty:
     RTS
 
 readjoy:
@@ -310,7 +402,7 @@ StartMoveDown:
     CLC
     LDA SCROLL_Y
     ADC #1
-    CMP #$00
+    CMP #$EA
     BEQ CancelScroll
     STA SCROLL_Y
     JSR ApplyScroll
@@ -330,7 +422,7 @@ ApplyScroll:
     LDA SCROLL_X
     STA PPUSCROLL
     
-    LDA SCROLL_Y
+    LDA #0
     STA PPUSCROLL
     
 
